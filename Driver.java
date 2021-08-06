@@ -10,12 +10,14 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Random;
@@ -48,10 +50,11 @@ public class Driver {
 	/**
 	 * @param args
 	 * @throws IOException 
+	 * @throws SQLException 
 	 */
 	
 	
-	public static void main(String[] args) throws IOException {
+	public static void main(String[] args) throws IOException, SQLException {
 		String font = "Arial";
 		int fontSize = 10;
 		int colWidth = 25;
@@ -63,16 +66,47 @@ public class Driver {
 		
 		createPowerPoint(rowHeight, colWidth, font, fontSize, showLables, showBorders, X, Y);
 		
+		API test = new API();
+		
+		ArrayList<String> temp = new ArrayList<String>();
+		
+		temp.add("Hello");
+		temp.add("my");
+		temp.add("name");
+		temp.add("is");
+		temp.add("Neil");
+		
+		
+		
+		
+		System.out.println(test.getLength(toCharArray(temp)));
+		
+		
+		
+		
+		
+		
+	}
 	
+	public static char[] toCharArray(ArrayList<String> strings) {
+		int size = 0;
+		for(int i = 0; i<strings.size(); i++) {
+			for(int n = 0; n<strings.get(i).length(); n++) {
+				size++;
+			}
+		}
 		
+		char[] theArray = new char[size];
 		
+		size = 0;
+		for(int i = 0; i<strings.size(); i++) {
+			for(int n = 0; n<strings.get(i).length(); n++) {
+				theArray[size] = strings.get(i).charAt(n);
+				size++;
+			}
+		}
 		
-		
-		
-		
-		
-		
-		
+		return theArray;
 		
 	}
 	
@@ -111,7 +145,7 @@ public class Driver {
 			r.setFontSize(30.);
 		}
 		
-		//220 = width (x)coordinate, 30 = height (y)coordinate, 50 = textbox width, 60 = textbox height
+		
 		slide_number.setAnchor(new Rectangle(220,30,50,50));
 	}
 	
@@ -210,9 +244,22 @@ public class Driver {
 		}
 	}
 	
-	public static void createPowerPoint(int rowHeight, int colWidth, String font, int fontSize, boolean showLables, boolean showBorders, int X, int Y) throws IOException {
+	public static void createPowerPoint(int rowHeight, int colWidth, String font, int fontSize, boolean showLables, boolean showBorders, int X, int Y) throws IOException, SQLException {
 		//create file
 		File f = new File("Puzzle.ppt");
+		
+		ArrayList<String> tempWordList = new ArrayList<String>();
+		
+		tempWordList.add("CONSOLE");
+		tempWordList.add("SPEAKER");
+		tempWordList.add("COFFEE");
+		tempWordList.add("DRAWER");
+		tempWordList.add("DRINK");
+		tempWordList.add("COLD");
+		
+		API api = new API();
+		
+		ArrayList<String> logicalCharacters = api.parseLogicalChars(tempWordList);
 		
 		//Data about slides
 		int puzzleCount = 10;
@@ -238,8 +285,11 @@ public class Driver {
 		//creating puzzle slides
 		for(int count = 0; count<puzzleCount; count++) {
 			
+			
+			
+			
 			//create puzzle
-			Grid theGrid = new Grid(rows, cols, getWordsFromTextFile("words.txt"), getFillerCharacters());
+			Grid theGrid = new Grid(rows, cols, getWordsFromTextFile("words.txt"), logicalCharacters);
 			
 			//add puzzle to list for later use
 			puzzles.add(theGrid);
@@ -510,6 +560,7 @@ public class Driver {
 		return tempWordList;
 	}
 	
+	/*
 	public static ArrayList<String> getFillerCharacters() {
 		ArrayList<String> tempWordList = new ArrayList<String>();
 		
@@ -522,6 +573,7 @@ public class Driver {
 		
 		return tempWordList;
 	}
+	*/
 	
 	public static int getRowsFromDatabase() {
 		Connection db_connection = null;
