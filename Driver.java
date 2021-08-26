@@ -1,27 +1,12 @@
 import java.awt.Color;
 import java.awt.Desktop;
 import java.awt.Rectangle;
-import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLConnection;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Random;
-import java.util.Scanner;
 
 import org.apache.poi.hslf.usermodel.HSLFLine;
 import org.apache.poi.hslf.usermodel.HSLFPictureData;
@@ -38,99 +23,331 @@ import org.apache.poi.sl.usermodel.TextParagraph.TextAlign;
 import org.apache.poi.sl.usermodel.VerticalAlignment;
 import org.apache.poi.util.IOUtils;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-
 /**
- * @author Neil Haggerty
- *
+ * This driver is responsible for 
+ * (a) creating an empty puzzle collection
+ * (b) creating the puzzles and populating the puzzle collection
+ * (c) generating the PPT based on the puzzle collection
  */
 public class Driver {
 
 	/**
 	 * @param args
-	 * @throws IOException 
-	 * @throws SQLException 
+	 * @throws IOException
+	 * @throws SQLException
 	 */
-	
-	
+
 	public static void main(String[] args) throws IOException, SQLException {
-		String font = "Arial";
-		int fontSize = 10;
-		int colWidth = 25;
-		int rowHeight = 25;
-		int X = 165;
-		int Y = 150;
-		boolean showLables = true;
-		boolean showBorders = false;
-		
-		createPowerPoint(rowHeight, colWidth, font, fontSize, showLables, showBorders, X, Y);
-		
-		API test = new API();
-		
-		ArrayList<String> temp = new ArrayList<String>();
-		
-		temp.add("Hello");
-		temp.add("my");
-		temp.add("name");
-		temp.add("is");
-		temp.add("Neil");
-		
-		
-		
-		
-		System.out.println(test.getLength(toCharArray(temp)));
-		
-		
-		
-		
-		
-		
+
+		// Create the puzzle collection
+		PuzzleCollection puzzle_collection = new PuzzleCollection(Preferences.PUZZLE_COUNT);
+
+		// Create the puzzles based on the language
+		puzzle_collection.createPuzzles(Preferences.FILE_NAME, Preferences.LANGUAGE);
+
+		// Create the power point from the puzzle collection
+		createPowerPoint(puzzle_collection.getPuzzleList());
+
 	}
-	
-	public static char[] toCharArray(ArrayList<String> strings) {
-		int size = 0;
-		for(int i = 0; i<strings.size(); i++) {
-			for(int n = 0; n<strings.get(i).length(); n++) {
-				size++;
+
+	/**
+	 * Create the Power Point from the puzzle collection
+	 * @param puzzles
+	 * @throws IOException
+	 * @throws SQLException
+	 */
+	public static void createPowerPoint(ArrayList<Puzzle> puzzles) throws IOException, SQLException {
+
+		// Get the preferences for creating the power point
+		int row_height = Preferences.ROW_HEIGHT;
+		int col_width = Preferences.COL_WIDTH;
+		String font_name = Preferences.FONT_NAME;
+		double font_size = Preferences.FONT_SIZE;
+		boolean show_labels = Preferences.SHOW_LABELS;
+		boolean show_borders = Preferences.SHOW_BORDERS;
+		int X = Preferences.STARTING_X;
+		int Y = Preferences.STARTING_Y;
+		String ppt_file_name = Preferences.PPT_FILE_NAME;
+
+		// create ppt file
+		File f = new File(ppt_file_name);
+
+		// create slide numbers
+		int puzzle_slide = 1;
+		int solution_slide = puzzle_slide;
+
+		// create slideshow
+		HSLFSlideShow ppt = new HSLFSlideShow();
+
+		// create labels
+		String[] top_label = { "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R",
+				"S", "T", "U", "V", "W", "X", "Y", "Z" };
+		String[] side_label = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16",
+				"17", "18", "19", "20", "21", "22", "23", "24", "25", "26" };
+
+		// creating puzzle slides
+		for (int count = 0; count < puzzles.size(); count++) {
+			Puzzle thePuzzle = puzzles.get(count);
+
+			// create slide
+			HSLFSlide slide1 = ppt.createSlide();
+
+			// create template for slide1
+			createTitle(slide1, thePuzzle.getTitle()); // title
+			createSlideNum(slide1, puzzle_slide); // number textbox
+			createPic(ppt, slide1); // logo
+
+			// create text box lines
+//			createLine(slide1, 220, 30, 50, 0); //top line
+//			createLine(slide1, 270, 30, 0, 50); //right line
+//			createLine(slide1, 220, 80, 50, 0); //bottom line
+//			createLine(slide1, 220, 30, 0, 50); //left line
+//					
+			// create a table for puzzle
+			HSLFTable table1 = slide1.createTable(thePuzzle.getRows(), thePuzzle.getCols());
+
+			// get the 2d char array
+			String grid[][] = thePuzzle.getTheGrid();
+
+			// show labels if specified
+			if (show_labels) {
+				HSLFTable top_row = slide1.createTable(1, thePuzzle.getCols());
+				HSLFTable side_row = slide1.createTable(thePuzzle.getRows(), 1);
+
+				for (int i = 0; i < thePuzzle.getRows(); i++) {
+					// side column labels for slide 1
+					HSLFTableCell side_cell = side_row.getCell(i, 0);
+					side_cell.setText(side_label[i]);
+					setBorders(side_cell);
+					HSLFTextRun rts1 = side_cell.getTextParagraphs().get(0).getTextRuns().get(0);
+					rts1.setFontFamily(font_name);
+					rts1.setFontSize(font_size);
+					side_cell.setVerticalAlignment(VerticalAlignment.MIDDLE);
+					side_cell.setHorizontalCentered(true);
+				}
+
+				for (int i = 0; i < Puzzle.getCols(); i++) {
+					HSLFTableCell top_cell = top_row.getCell(0, i);
+					top_cell.setText(top_label[i]);
+					setBorders(top_cell);
+					HSLFTextRun rt2s1 = top_cell.getTextParagraphs().get(0).getTextRuns().get(0);
+					rt2s1.setFontFamily(font_name);
+					rt2s1.setFontSize(font_size);
+					top_cell.setVerticalAlignment(VerticalAlignment.MIDDLE);
+					top_cell.setHorizontalCentered(true);
+				}
+
+				side_row.setColumnWidth(0, 30);
+				top_row.setRowHeight(0, 30);
+
+				for (int i = 0; i < thePuzzle.getCols(); i++) {
+					top_row.setColumnWidth(i, col_width);
+
+				}
+
+				for (int i = 0; i < thePuzzle.getRows(); i++) {
+					side_row.setRowHeight(i, row_height);
+
+				}
+
+				top_row.moveTo(X, Y - 30);
+				side_row.moveTo(X - 30, Y);
+
 			}
-		}
-		
-		char[] theArray = new char[size];
-		
-		size = 0;
-		for(int i = 0; i<strings.size(); i++) {
-			for(int n = 0; n<strings.get(i).length(); n++) {
-				theArray[size] = strings.get(i).charAt(n);
-				size++;
+
+			// writes appropriate values into table
+			for (int i = 0; i < thePuzzle.getCols(); i++) {
+				for (int n = 0; n < thePuzzle.getRows(); n++) {
+					// writes values from puzzle into tables
+					String char_string = String.valueOf(grid[n][i]);
+					HSLFTableCell cell1 = table1.getCell(n, i);
+					cell1.setText(char_string);
+
+					// formats each cell on slide 1
+					if (show_borders)
+						setBorders(cell1);
+					HSLFTextRun rt1 = cell1.getTextParagraphs().get(0).getTextRuns().get(0);
+					rt1.setFontFamily(font_name);
+					rt1.setFontSize(font_size);
+					cell1.setVerticalAlignment(VerticalAlignment.MIDDLE);
+					cell1.setHorizontalCentered(true);
+
+				}
 			}
+
+			// set column width
+			for (int i = 0; i < thePuzzle.getCols(); i++) {
+				table1.setColumnWidth(i, col_width);
+
+			}
+
+			// set row height
+			for (int i = 0; i < thePuzzle.getRows(); i++) {
+				table1.setRowHeight(i, row_height);
+
+			}
+
+			// move table
+			table1.moveTo(X, Y);
+
+			// increment slide numbers
+			puzzle_slide = puzzle_slide + 1;
 		}
-		
-		return theArray;
-		
+
+		// creating solution slides
+		for (int count = 0; count < puzzles.size(); count++) {
+
+			// get puzzle from puzzle list
+			Puzzle thePuzzle = puzzles.get(count);
+
+			// create and format slide
+			HSLFSlide slide2 = ppt.createSlide();
+			createSlideNum(slide2, solution_slide);
+			createTitle(slide2, thePuzzle.getTitle());
+			createPic(ppt, slide2);
+
+			// create text box lines
+//			createLine(slide2, 220, 30, 50, 0); //top line
+//			createLine(slide2, 270, 30, 0, 50); //right line
+//			createLine(slide2, 220, 80, 50, 0); //bottom line
+//			createLine(slide2, 220, 30, 0, 50); //left line
+
+			// create table
+			HSLFTable table2 = slide2.createTable(thePuzzle.getRows(), thePuzzle.getCols());
+
+			// draw solutions
+			String grid[][] = puzzles.get(count).getTheGrid();
+			drawSolutions(table2, puzzles.get(count).getSolutions());
+
+			// show labels if specified
+			if (show_labels) {
+				HSLFTable top_row = slide2.createTable(1, thePuzzle.getCols());
+				HSLFTable side_row = slide2.createTable(thePuzzle.getRows(), 1);
+
+				for (int i = 0; i < thePuzzle.getRows(); i++) {
+					// side column labels for slide 1
+					HSLFTableCell side_cell = side_row.getCell(i, 0);
+					side_cell.setText(side_label[i]);
+					setBorders(side_cell);
+					HSLFTextRun rts1 = side_cell.getTextParagraphs().get(0).getTextRuns().get(0);
+					rts1.setFontFamily(font_name);
+					rts1.setFontSize(font_size);
+					side_cell.setVerticalAlignment(VerticalAlignment.MIDDLE);
+					side_cell.setHorizontalCentered(true);
+				}
+
+				for (int i = 0; i < thePuzzle.getCols(); i++) {
+					HSLFTableCell top_cell = top_row.getCell(0, i);
+					top_cell.setText(top_label[i]);
+					setBorders(top_cell);
+					HSLFTextRun rt2s1 = top_cell.getTextParagraphs().get(0).getTextRuns().get(0);
+					rt2s1.setFontFamily(font_name);
+					rt2s1.setFontSize(font_size);
+					top_cell.setVerticalAlignment(VerticalAlignment.MIDDLE);
+					top_cell.setHorizontalCentered(true);
+				}
+
+				side_row.setColumnWidth(0, 30);
+				top_row.setRowHeight(0, 30);
+
+				for (int i = 0; i < thePuzzle.getCols(); i++) {
+					top_row.setColumnWidth(i, col_width);
+
+				}
+
+				for (int i = 0; i < thePuzzle.getRows(); i++) {
+					side_row.setRowHeight(i, row_height);
+
+				}
+
+				top_row.moveTo(X, Y - 30);
+				side_row.moveTo(X - 30, Y);
+
+			}
+
+			// write appropriate values into table
+			for (int i = 0; i < 16; i++) {
+				for (int n = 0; n < 12; n++) {
+					// writes values from puzzle into tables
+					String char_string = String.valueOf(grid[n][i]);
+					HSLFTableCell cell2 = table2.getCell(n, i);
+					cell2.setText(char_string);
+
+					// formats each cell
+					if (show_borders)
+						setBorders(cell2);
+					HSLFTextRun rt2 = cell2.getTextParagraphs().get(0).getTextRuns().get(0);
+					rt2.setFontFamily(font_name);
+					rt2.setFontSize(font_size);
+					cell2.setVerticalAlignment(VerticalAlignment.MIDDLE);
+					cell2.setHorizontalCentered(true);
+				}
+			}
+
+			// set column width
+			for (int i = 0; i < thePuzzle.getCols(); i++) {
+				table2.setColumnWidth(i, col_width);
+
+			}
+
+			// set row height
+			for (int i = 0; i < thePuzzle.getRows(); i++) {
+				table2.setRowHeight(i, row_height);
+
+			}
+
+			// move table
+			table2.moveTo(X, Y);
+
+			// increment slide numbers
+			solution_slide = solution_slide + 1;
+		}
+
+		// write data to slideshow
+		FileOutputStream out = new FileOutputStream(f);
+		ppt.write(out);
+		out.close();
+
+		System.out.println("Puzzle is created in " + Preferences.PPT_FILE_NAME);
+
+		Desktop.getDesktop().browse(f.toURI());
+		ppt.close();
 	}
-	
+
+	/**
+	 * Helper method to set the borders
+	 * @param cell
+	 */
 	public static void setBorders(HSLFTableCell cell) {
 		cell.setBorderColor(BorderEdge.bottom, Color.black);
 		cell.setBorderColor(BorderEdge.top, Color.black);
 		cell.setBorderColor(BorderEdge.right, Color.black);
 		cell.setBorderColor(BorderEdge.left, Color.black);
 	}
-	
-	public static void createTitle(HSLFSlide slide) {
+
+	/**
+	 * Helper method to create the Title
+	 * @param slide
+	 * @param puzzleName
+	 */
+	public static void createTitle(HSLFSlide slide, String puzzleName) {
 		HSLFTextBox title = slide.createTextBox();
 		HSLFTextParagraph p = title.getTextParagraphs().get(0);
 		p.setTextAlign(TextAlign.CENTER);
 		HSLFTextRun r = p.getTextRuns().get(0);
 		r.setBold(true);
 		r.setFontColor(Color.black);
-		r.setText("Puzzle");
-		r.setFontFamily("Arial");
-		r.setFontSize(35.);
-		title.setAnchor(new Rectangle(270,30,200,60));
-		
+		r.setText(puzzleName.toUpperCase());
+		r.setFontFamily(Preferences.FONT_NAME);
+		r.setFontSize(Preferences.FONT_SIZE * 2);
+		title.setAnchor(new Rectangle(240, 10, 400, 200));
 	}
-	
+
+	/**
+	 * Helper method to set the slide number
+	 * @param slide
+	 * @param slide_num
+	 */
 	public static void createSlideNum(HSLFSlide slide, int slide_num) {
 		HSLFTextBox slide_number = slide.createTextBox();
 		HSLFTextParagraph p = slide_number.getTextParagraphs().get(0);
@@ -138,504 +355,132 @@ public class Driver {
 		slide_number.setFillColor(Color.green);
 		HSLFTextRun r = p.getTextRuns().get(0);
 		r.setText("" + slide_num + "");
-		r.setFontFamily("Arial");
-		if(slide_num>99) {
-			r.setFontSize(20.);
-		} else {
-			r.setFontSize(30.);
-		}
-		
-		
-		slide_number.setAnchor(new Rectangle(220,30,50,50));
+		r.setFontFamily(Preferences.FONT_NAME);
+		r.setFontSize(30.);
+//		if (slide_num > 9) {
+//			r.setFontSize(20.);
+//		} else {
+//			r.setFontSize(36.);
+//		}
+
+		slide_number.setAnchor(new Rectangle(220, 10, 50, 30));
 	}
-	
-	public static void createLine(HSLFSlide slide, int x, int y, int x2, int y2) {
-		HSLFLine line = new HSLFLine();
-		line.setAnchor(new Rectangle(x,y,x2,y2));
-		line.setLineColor(Color.black);
-		slide.addShape(line);	
-	}
-	
-	public static void createPic(HSLFSlideShow ppt, HSLFSlide slide) throws IOException {
-		byte[] picture = IOUtils.toByteArray(new FileInputStream(new File("logo.png")));
-		HSLFPictureData pd = ppt.addPicture(picture, HSLFPictureData.PictureType.PNG);
-		HSLFPictureShape pic_shape = slide.createPicture(pd);  
-		pic_shape.setAnchor(new Rectangle(0, 0, 174, 65));
-	}
-	
 
 	
+	/** 
+	 * Helper method to create the lines in PPT
+	 * @param slide
+	 * @param x
+	 * @param y
+	 * @param x2
+	 * @param y2
+	 */
+	public static void createLine(HSLFSlide slide, int x, int y, int x2, int y2) {
+		HSLFLine line = new HSLFLine();
+		line.setAnchor(new Rectangle(x, y, x2, y2));
+		line.setLineColor(Color.black);
+		slide.addShape(line);
+	}
 	
-	public static void drawSolutions(HSLFTable t, ArrayList<String> coords) {
-		for(int n = 0; n<coords.size(); n++) {
+	/**
+	 * Helper method to keep the logo
+	 * @param ppt
+	 * @param slide
+	 * @throws IOException
+	 */
+
+	public static void createPic(HSLFSlideShow ppt, HSLFSlide slide) throws IOException {
+		File logo_file = new File(Preferences.LOGO_FILE_NAME);
+		FileInputStream logo_stream = new FileInputStream(logo_file);
+		byte[] picture = IOUtils.toByteArray(logo_stream);
+		HSLFPictureData picture_data = ppt.addPicture(picture, HSLFPictureData.PictureType.PNG);
+		HSLFPictureShape pic_shape = slide.createPicture(picture_data);
+		pic_shape.setAnchor(new Rectangle(0, 0, 174, 65));
+	}
+
+	/**
+	 * Method for showing the solutions in the solution slides
+	 * 
+	 * @param table
+	 * @param coords
+	 */
+
+	public static void drawSolutions(HSLFTable table, ArrayList<String> coords) {
+		for (int n = 0; n < coords.size(); n++) {
 			String[] current = coords.get(n).split(" ");
 			String[] start = current[0].split(",");
 			String[] end = current[1].split(",");
-			
-			int startX = Integer.parseInt(start[1]);
-			int startY = Integer.parseInt(start[0]);
-			int endX = Integer.parseInt(end[1]);
-			int endY = Integer.parseInt(end[0]);
-			
-			int wordLength;
-			if((startX - endX)==0) {
-				if((startY - endY)>0) {
-					wordLength = startY - endY;
-					for(int i = 0; i<wordLength+1; i++) {
-						HSLFTableCell cell = t.getCell((startX), (startY - i));
+
+			int start_x = Integer.parseInt(start[1]);
+			int start_y = Integer.parseInt(start[0]);
+			int end_x = Integer.parseInt(end[1]);
+			int end_y = Integer.parseInt(end[0]);
+
+			int word_length;
+
+			// this nested if sequence determines what direction the word is going and fills
+			// in the appropriate cells
+			if ((start_x - end_x) == 0) {
+				if ((start_y - end_y) > 0) {
+					word_length = start_y - end_y;
+					for (int i = 0; i < word_length + 1; i++) {
+						HSLFTableCell cell = table.getCell((start_x), (start_y - i));
 						cell.setFillColor(Color.green);
-						
 					}
-					
+
 				} else {
-					wordLength = endY - startY;
-					for(int i = 0; i<wordLength+1; i++) {
-						HSLFTableCell cell = t.getCell((startX), (startY + i));
+					word_length = end_y - start_y;
+					for (int i = 0; i < word_length + 1; i++) {
+						HSLFTableCell cell = table.getCell((start_x), (start_y + i));
 						cell.setFillColor(Color.green);
-						
+
 					}
 				}
-			} else if((startX - endX)>0) {
-				wordLength = startX - endX;
-				if((endY - startY)==0) {
-					for(int i = 0; i<wordLength+1; i++) {
-						HSLFTableCell cell = t.getCell((startX - i), (startY));
+			} else if ((start_x - end_x) > 0) {
+				word_length = start_x - end_x;
+				if ((end_y - start_y) == 0) {
+					for (int i = 0; i < word_length + 1; i++) {
+						HSLFTableCell cell = table.getCell((start_x - i), (start_y));
 						cell.setFillColor(Color.green);
-						
+
 					}
-				} else if((endY - startY)>0) {
-					for(int i = 0; i<wordLength+1; i++) {
-						HSLFTableCell cell = t.getCell((startX - i), (startY + i));
+				} else if ((end_y - start_y) > 0) {
+					for (int i = 0; i < word_length + 1; i++) {
+						HSLFTableCell cell = table.getCell((start_x - i), (start_y + i));
 						cell.setFillColor(Color.green);
-						
+
 					}
 				} else {
-					for(int i = 0; i<wordLength+1; i++) {
-						HSLFTableCell cell = t.getCell((startX - i), (startY - i));
+					for (int i = 0; i < word_length + 1; i++) {
+						HSLFTableCell cell = table.getCell((start_x - i), (start_y - i));
 						cell.setFillColor(Color.green);
-						
+
 					}
 				}
 			} else {
-				wordLength = endX - startX;
-				if((endY - startY)==0) {
-					for(int i = 0; i<wordLength+1; i++) {
-						HSLFTableCell cell = t.getCell((startX + i), (startY));
+				word_length = end_x - start_x;
+				if ((end_y - start_y) == 0) {
+					for (int i = 0; i < word_length + 1; i++) {
+						HSLFTableCell cell = table.getCell((start_x + i), (start_y));
 						cell.setFillColor(Color.green);
-						
+
 					}
-				} else if((endY - startY)>0) {
-					for(int i = 0; i<wordLength+1; i++) {
-						HSLFTableCell cell = t.getCell((startX + i), (startY + i));
+				} else if ((end_y - start_y) > 0) {
+					for (int i = 0; i < word_length + 1; i++) {
+						HSLFTableCell cell = table.getCell((start_x + i), (start_y + i));
 						cell.setFillColor(Color.green);
-						
+
 					}
 				} else {
-					for(int i = 0; i<wordLength+1; i++) {
-						HSLFTableCell cell = t.getCell((startX + i), (startY - i));
+					for (int i = 0; i < word_length + 1; i++) {
+						HSLFTableCell cell = table.getCell((start_x + i), (start_y - i));
 						cell.setFillColor(Color.green);
-						
+
 					}
 				}
 			}
-			
-			
-			
+
 		}
 	}
-	
-	public static void createPowerPoint(int rowHeight, int colWidth, String font, int fontSize, boolean showLables, boolean showBorders, int X, int Y) throws IOException, SQLException {
-		//create file
-		File f = new File("Puzzle.ppt");
-		
-		ArrayList<String> tempWordList = new ArrayList<String>();
-		
-		tempWordList.add("CONSOLE");
-		tempWordList.add("SPEAKER");
-		tempWordList.add("COFFEE");
-		tempWordList.add("DRAWER");
-		tempWordList.add("DRINK");
-		tempWordList.add("COLD");
-		
-		API api = new API();
-		
-		ArrayList<String> logicalCharacters = api.parseLogicalChars(tempWordList);
-		
-		//Data about slides
-		int puzzleCount = 10;
-		
-		int puzzle_slide = 1;
-		int solution_slide = puzzleCount + 1;
-		
-		int rows = getRowsFromDatabase();
-		int cols = getColsFromDatabase();
-		
-		//keeps track of the puzzles, used to create solution slides
-		ArrayList<Grid> puzzles = new ArrayList<Grid>();
-		
-		//create powerpoints
-		HSLFSlideShow ppt = new HSLFSlideShow();
-		
-		String[] top_label = { "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R",
-				"S", "T", "U", "V", "W", "X", "Y", "Z" };
 
-		String[] side_label = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16",
-				"17", "18", "19", "20", "21", "22", "23", "24", "25", "26" };
-		
-		//creating puzzle slides
-		for(int count = 0; count<puzzleCount; count++) {
-			
-			
-			
-			
-			//create puzzle
-			Grid theGrid = new Grid(rows, cols, getWordsFromTextFile("words.txt"), logicalCharacters);
-			
-			//add puzzle to list for later use
-			puzzles.add(theGrid);
-							
-			//create 2 slides (no solution and solution)
-			HSLFSlide slide1 = ppt.createSlide();
-					
-			//create template for slide1
-			createTitle(slide1); //title
-			createSlideNum(slide1, puzzle_slide); //number textbox
-			createPic(ppt, slide1); //logo
-					
-			//create text box lines
-			createLine(slide1, 220, 30, 50, 0); //top line
-			createLine(slide1, 270, 30, 0, 50); //right line
-			createLine(slide1, 220, 80, 50, 0); //bottom line
-			createLine(slide1, 220, 30, 0, 50); //left line
-			
-					
-			//create a table of 12 rows and 16 columns
-			HSLFTable table1 = slide1.createTable(rows, cols);
-			
-			char grid[][] = theGrid.getTheGrid();
-			
-			if(showLables) {
-				HSLFTable top_row = slide1.createTable(1, cols);
-				HSLFTable side_row = slide1.createTable(rows, 1);
-				
-				for(int i = 0; i<rows; i++) {
-					//side column labels for slide 1
-					HSLFTableCell side_cell = side_row.getCell(i, 0);
-					side_cell.setText(side_label[i]);
-					setBorders(side_cell);
-					HSLFTextRun rts1 = side_cell.getTextParagraphs().get(0).getTextRuns().get(0);
-					rts1.setFontFamily("Arial");
-					rts1.setFontSize(10.);
-					side_cell.setVerticalAlignment(VerticalAlignment.MIDDLE);
-					side_cell.setHorizontalCentered(true);
-				}
-				
-				
-				for(int i = 0; i<cols; i++) {
-					HSLFTableCell top_cell = top_row.getCell(0, i);
-					top_cell.setText(top_label[i]);
-					setBorders(top_cell);
-					HSLFTextRun rt2s1 = top_cell.getTextParagraphs().get(0).getTextRuns().get(0);
-					rt2s1.setFontFamily("Arial");
-					rt2s1.setFontSize(10.);
-					top_cell.setVerticalAlignment(VerticalAlignment.MIDDLE);
-					top_cell.setHorizontalCentered(true);
-				}
-				
-				side_row.setColumnWidth(0, 30);
-				top_row.setRowHeight(0, 30);
-				
-				for (int i = 0; i < cols; i++) {
-					top_row.setColumnWidth(i, colWidth);
-					
-				}
-				
-				for (int i = 0; i < rows; i++) {
-					side_row.setRowHeight(i, rowHeight);
-					
-				}
-				
-				top_row.moveTo(X, Y-30);
-				side_row.moveTo(X-30, Y);
-				
-			}
-			
-			
-			
-			for(int i = 0; i<cols; i++) {
-				for(int n = 0; n<rows; n++) {
-					//writes values from puzzle into tables
-					String char_string = String.valueOf(grid[n][i]);
-					HSLFTableCell cell1 = table1.getCell(n, i);
-					cell1.setText(char_string);
-					
-					//formats each cell on slide 1
-					if(showBorders)
-						setBorders(cell1);
-				    HSLFTextRun rt1 = cell1.getTextParagraphs().get(0).getTextRuns().get(0);
-				    rt1.setFontFamily("Arial");
-				    rt1.setFontSize(10.);
-				    cell1.setVerticalAlignment(VerticalAlignment.MIDDLE);
-				    cell1.setHorizontalCentered(true);
-				    
-				    
-				}
-			}
-			
-			
-			
-			for (int i = 0; i < cols; i++) {
-				table1.setColumnWidth(i, colWidth);
-				
-			}
-			
-			
-			for (int i = 0; i < rows; i++) {
-				table1.setRowHeight(i, rowHeight);
-				
-			}
-			
-			table1.moveTo(X, Y);
-			
-			
-			//increment slide numbers 
-			puzzle_slide = puzzle_slide + 1; 
-		}
-		
-		//creating solution slides
-		for(int count = 0; count<puzzleCount; count++) {
-			HSLFSlide slide2 = ppt.createSlide();
-			createSlideNum(slide2, solution_slide); 
-			createPic(ppt, slide2);
-			
-			//create text box lines 
-			createLine(slide2, 220, 30, 50, 0); //top line
-			createLine(slide2, 270, 30, 0, 50); //right line
-			createLine(slide2, 220, 80, 50, 0); //bottom line
-			createLine(slide2, 220, 30, 0, 50); //left line
-			
-			HSLFTable table2 = slide2.createTable(rows, cols);
-			
-			//draw solutions on slide 2
-			char grid[][] = puzzles.get(count).getTheGrid();
-			drawSolutions(table2, puzzles.get(count).getSolutions());
-			
-			if(showLables) {
-				HSLFTable top_row = slide2.createTable(1, cols);
-				HSLFTable side_row = slide2.createTable(rows, 1);
-				
-				for(int i = 0; i<rows; i++) {
-					//side column labels for slide 1
-					HSLFTableCell side_cell = side_row.getCell(i, 0);
-					side_cell.setText(side_label[i]);
-					setBorders(side_cell);
-					HSLFTextRun rts1 = side_cell.getTextParagraphs().get(0).getTextRuns().get(0);
-					rts1.setFontFamily("Arial");
-					rts1.setFontSize(10.);
-					side_cell.setVerticalAlignment(VerticalAlignment.MIDDLE);
-					side_cell.setHorizontalCentered(true);
-				}
-				
-				
-				for(int i = 0; i<cols; i++) {
-					HSLFTableCell top_cell = top_row.getCell(0, i);
-					top_cell.setText(top_label[i]);
-					setBorders(top_cell);
-					HSLFTextRun rt2s1 = top_cell.getTextParagraphs().get(0).getTextRuns().get(0);
-					rt2s1.setFontFamily("Arial");
-					rt2s1.setFontSize(10.);
-					top_cell.setVerticalAlignment(VerticalAlignment.MIDDLE);
-					top_cell.setHorizontalCentered(true);
-				}
-				
-				side_row.setColumnWidth(0, 30);
-				top_row.setRowHeight(0, 30);
-				
-				for (int i = 0; i < cols; i++) {
-					top_row.setColumnWidth(i, colWidth);
-					
-				}
-				
-				for (int i = 0; i < rows; i++) {
-					side_row.setRowHeight(i, rowHeight);
-					
-				}
-				
-				top_row.moveTo(X, Y-30);
-				side_row.moveTo(X-30, Y);
-				
-			}
-			
-			for(int i = 0; i<16; i++) {
-				for(int n = 0; n<12; n++) {
-					//writes values from puzzle into tables
-					String char_string = String.valueOf(grid[n][i]);
-					HSLFTableCell cell2 = table2.getCell(n, i);
-					cell2.setText(char_string);
-				    
-				    //formats each cell on slide 2
-					if(showBorders)
-						setBorders(cell2);
-			        HSLFTextRun rt2 = cell2.getTextParagraphs().get(0).getTextRuns().get(0);
-			        rt2.setFontFamily("Arial");
-			        rt2.setFontSize(10.);
-			        cell2.setVerticalAlignment(VerticalAlignment.MIDDLE);
-			        cell2.setHorizontalCentered(true);
-				}
-			}
-			
-			
-			for (int i = 0; i < cols; i++) {
-				table2.setColumnWidth(i, colWidth);
-				
-			}
-			
-			for (int i = 0; i < rows; i++) {
-				table2.setRowHeight(i, rowHeight);
-				
-			}
-			
-			table2.moveTo(X, Y);
-			
-			//increment slide numbers  
-			solution_slide = solution_slide + 1;
-		}
-		
-		FileOutputStream out = new FileOutputStream(f);
-		ppt.write(out);
-		out.close();
-		
-				
-		System.out.println("Puzzle is created to Puzzle.ppt.");
-				
-		Desktop.getDesktop().browse(f.toURI());
-		ppt.close();
-	}
-	
-	public static ArrayList<String> getWordsFromTextFile(String file_name){
-		ArrayList<String> theList = new ArrayList<String>();
-		
-		Random rand = new Random();
-		
-		File file = new File(file_name);
-		try {
-			Scanner s1 = new Scanner(file);
-			String word = "";
-			for(int i = 0; i<10; i++) {
-				int line = rand.nextInt(20);
-				for(int n = 0; n<line; n++) {
-					word = s1.nextLine();
-				}
-				//System.out.println(word);
-				if(theList.contains(word)) {
-					i--;
-				} else {
-					theList.add(word.toUpperCase());
-				}
-				
-				
-			}
-			
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
-		return theList;
-	}
-	
-	public static ArrayList<String> getWordsFromDatabase() {
-		ArrayList<String> tempWordList = new ArrayList<String>();
-		tempWordList.add("CAT");
-		tempWordList.add("DOG");
-		tempWordList.add("TRUCK");
-		tempWordList.add("TREE");
-		tempWordList.add("ROCK");
-		tempWordList.add("DIME");
-		tempWordList.add("QUARTER");
-		tempWordList.add("NICKLE");
-		tempWordList.add("BRICK");
-		tempWordList.add("STICK");
-		
-		return tempWordList;
-	}
-	
-	/*
-	public static ArrayList<String> getFillerCharacters() {
-		ArrayList<String> tempWordList = new ArrayList<String>();
-		
-		tempWordList.add("CONSOLE");
-		tempWordList.add("SPEAKER");
-		tempWordList.add("COFFEE");
-		tempWordList.add("DRAWER");
-		tempWordList.add("DRINK");
-		tempWordList.add("COLD");
-		
-		return tempWordList;
-	}
-	*/
-	
-	public static int getRowsFromDatabase() {
-		Connection db_connection = null;
-		int rows = 0;
-		try {
-
-			String url = "jdbc:mysql://localhost/autosearch";
-			String user = "root";
-			String password = "";
-			db_connection = DriverManager.getConnection(url, user, password);
-			System.out.println("Success: Connection established");
-
-			Statement statement_object = db_connection.createStatement();
-
-			String sql_query_str = "SELECT * FROM dimensions";
-			ResultSet result_set = statement_object.executeQuery(sql_query_str);
-
-			while (result_set.next()) {
-				rows = result_set.getInt("rows");
-				System.out.println("rows = "+rows);
-				
-
-			} // end while
-
-		} // end try
-
-		catch (Exception ex) {
-			ex.printStackTrace();
-		} // end catch
-		
-		return rows;
-	}
-
-	public static int getColsFromDatabase() {
-		Connection db_connection = null;
-		int columns = 0;
-		try {		
-			
-
-			String url = "jdbc:mysql://localhost/autosearch";
-			String user = "root";
-			String password = "";
-			db_connection = DriverManager.getConnection(url, user, password);
-
-			Statement statement_object = db_connection.createStatement();
-
-			String sql_query_str = "SELECT * FROM dimensions";
-			ResultSet result_set = statement_object.executeQuery(sql_query_str);
-			
-			while (result_set.next()) {
-				columns = result_set.getInt("columns");
-				System.out.println("columns = "+columns);
-				
-
-			} // end while
-
-		} // end try
-
-		catch (Exception ex) {
-			ex.printStackTrace();
-		} // end catch
-		
-		return columns;
-	}
 }
