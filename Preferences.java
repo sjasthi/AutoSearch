@@ -13,19 +13,22 @@ public class Preferences {
 	// How many puzzles do you want to generate?
 	// For testing purposes, keep this number small.
 	// In production, set it to 100
-	public static int PUZZLE_COUNT = 50;
+	public static int PUZZLE_COUNT = 5;
+
+	// System limit on the number of puzzles for batch generation
+	public static int MAX_PUZZLE_COUNT = 100;
 
 	// Language setting
 	public static String LANGUAGE = "Telugu";
 	// public static String language = "English";
 
-	// file_name setting
+	// file_name setting;
 	// Language and file name setting should match
-	public static String FILE_NAME = "telugu_word_list.txt";
+	// Go with the smaller files during the development
+	// public static String FILE_NAME = "telugu_word_list.txt";
 	// public static String FILE_NAME = "english_word_list.txt";
-
-	// Max limit on the number of puzzles for batch generation
-	public static int MAX_PUZZLE_COUNT = 100;
+	public static String FILE_NAME = "telugu_small_word_list.txt";
+	// public static String FILE_NAME = "english_small_word_list.txt";
 
 	// Default number of rows for the puzzle grid
 	public static int NO_OF_ROWS = 12;

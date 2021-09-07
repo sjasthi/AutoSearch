@@ -24,10 +24,9 @@ import org.apache.poi.sl.usermodel.VerticalAlignment;
 import org.apache.poi.util.IOUtils;
 
 /**
- * This driver is responsible for 
- * (a) creating an empty puzzle collection
- * (b) creating the puzzles and populating the puzzle collection
- * (c) generating the PPT based on the puzzle collection
+ * This driver is responsible for (a) creating an empty puzzle collection (b)
+ * creating the puzzles and populating the puzzle collection (c) generating the
+ * PPT based on the puzzle collection
  */
 public class Driver {
 
@@ -40,6 +39,8 @@ public class Driver {
 	public static void main(String[] args) throws IOException, SQLException {
 
 		// Create the puzzle collection
+		// BUG: How many puzzles can actually be created from the text file
+		// We need to pass on that number here.
 		PuzzleCollection puzzle_collection = new PuzzleCollection(Preferences.PUZZLE_COUNT);
 
 		// Create the puzzles based on the language
@@ -52,6 +53,7 @@ public class Driver {
 
 	/**
 	 * Create the Power Point from the puzzle collection
+	 * 
 	 * @param puzzles
 	 * @throws IOException
 	 * @throws SQLException
@@ -316,6 +318,7 @@ public class Driver {
 
 	/**
 	 * Helper method to set the borders
+	 * 
 	 * @param cell
 	 */
 	public static void setBorders(HSLFTableCell cell) {
@@ -327,6 +330,7 @@ public class Driver {
 
 	/**
 	 * Helper method to create the Title
+	 * 
 	 * @param slide
 	 * @param puzzleName
 	 */
@@ -345,6 +349,7 @@ public class Driver {
 
 	/**
 	 * Helper method to set the slide number
+	 * 
 	 * @param slide
 	 * @param slide_num
 	 */
@@ -357,18 +362,12 @@ public class Driver {
 		r.setText("" + slide_num + "");
 		r.setFontFamily(Preferences.FONT_NAME);
 		r.setFontSize(30.);
-//		if (slide_num > 9) {
-//			r.setFontSize(20.);
-//		} else {
-//			r.setFontSize(36.);
-//		}
-
 		slide_number.setAnchor(new Rectangle(220, 10, 50, 30));
 	}
 
-	
-	/** 
+	/**
 	 * Helper method to create the lines in PPT
+	 * 
 	 * @param slide
 	 * @param x
 	 * @param y
@@ -381,9 +380,10 @@ public class Driver {
 		line.setLineColor(Color.black);
 		slide.addShape(line);
 	}
-	
+
 	/**
 	 * Helper method to keep the logo
+	 * 
 	 * @param ppt
 	 * @param slide
 	 * @throws IOException
